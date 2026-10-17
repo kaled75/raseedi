@@ -205,6 +205,12 @@ export function changePassword(currentPass: string, newPass: string, hint?: stri
       updated_at = excluded.updated_at
   `).run(passwordHash, salt, hint || null, now, now);
 
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES ('initial_setup_dismissed', '1', datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET value = '1', updated_at = datetime('now')
+  `).run();
+
   checkpointDatabase();
   logAudit('AUTH_CHANGE_PASSWORD', 'auth', '1', { hintUpdated: !!hint });
   return { success: true };

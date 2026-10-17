@@ -51,6 +51,7 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: false,
       webSecurity: true
     },
     autoHideMenuBar: true,
@@ -68,7 +69,12 @@ function createWindow() {
   registerIpcHandlers(mainWindow);
 
   // Load URL
-  if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
+  if (process.env.NODE_ENV === 'development') {
+    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  } else if (!app.isPackaged && fs.existsSync(path.join(__dirname, '../dist/index.html')) && process.env.NODE_ENV === 'production') {
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  } else if (!app.isPackaged) {
     mainWindow.loadURL('http://localhost:5173');
     mainWindow.webContents.openDevTools({ mode: 'detach' });
   } else {

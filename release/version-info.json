@@ -1,0 +1,25 @@
+{
+  "name": "raseedi",
+  "productName": "رَصيدي - Raseedi",
+  "version": "1.0.0",
+  "releaseDate": "2026-10-17",
+  "author": "خالد الرماح ابورقيقة",
+  "email": "kl2009k@gmail.com",
+  "facebook": "https://www.facebook.com/Khaled.Alrammah.AbuRaqiqa",
+  "architecture": "x64",
+  "platform": "win32",
+  "artifacts": [
+    {
+      "type": "nsis-installer",
+      "filename": "رَصيدي - Raseedi Setup 1.0.0.exe",
+      "sizeBytes": 128856483,
+      "sha256": "D5128E7F23A4FF42AB1C9B8C9DDEC6579D75B6B25AC962DD6987D59C83DBEECA"
+    },
+    {
+      "type": "portable-executable",
+      "filename": "رَصيدي - Raseedi 1.0.0.exe",
+      "sizeBytes": 128355231,
+      "sha256": "9A45D021697543E6CF83CD6A2F31E5F80374247FD8FB6B695DD20FC43A6E26FF"
+    }
+  ]
+}

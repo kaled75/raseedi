@@ -9,6 +9,7 @@ interface AuthContextType {
   hint?: string;
   login: (password: string) => Promise<{ success: boolean; message?: string }>;
   setupPassword: (password: string, hint?: string) => Promise<{ success: boolean; message?: string }>;
+  changePassword: (currentPassword: string, newPassword: string, hint?: string) => Promise<{ success: boolean; message?: string }>;
   skipSetup: () => Promise<void>;
   removePassword: (currentPassword: string) => Promise<{ success: boolean; message?: string }>;
   lockApp: () => void;
@@ -18,8 +19,23 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [isConfigured, setIsConfigured] = useState<boolean>(true);
-  const [isLocked, setIsLocked] = useState<boolean>(false);
+  const [isConfigured, setIsConfigured] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('raseedi_auth_configured') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const [isLocked, setIsLocked] = useState<boolean>(() => {
+    try {
+      // If configured, lock immediately on cold start so no dashboard flash can occur
+      return localStorage.getItem('raseedi_auth_configured') === '1';
+    } catch {
+      return false;
+    }
+  });
+
   const [hasCompletedSetup, setHasCompletedSetup] = useState<boolean>(() => {
     try {
       return localStorage.getItem('raseedi_auth_dismissed') === '1';
@@ -35,6 +51,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const lockApp = useCallback(() => {
     if (isConfigured) {
       setIsLocked(true);
+      try { sessionStorage.removeItem('raseedi_session_authed'); } catch {}
     }
   }, [isConfigured]);
 
@@ -72,14 +89,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const status = await api.getAuthStatus();
       setIsConfigured(status.isConfigured);
       setHint(status.hint);
+
+      if (status.isConfigured) {
+        try { localStorage.setItem('raseedi_auth_configured', '1'); } catch {}
+        // On initial check, if configured and session is not authenticated, ensure locked
+        setIsLocked(prev => (prev === false ? (sessionStorage.getItem('raseedi_session_authed') === '1' ? false : true) : true));
+      } else {
+        try { localStorage.removeItem('raseedi_auth_configured'); } catch {}
+        setIsLocked(false);
+      }
+
       if (status.hasCompletedSetup) {
         setHasCompletedSetup(true);
         try { localStorage.setItem('raseedi_auth_dismissed', '1'); } catch {}
-      }
-      if (status.isConfigured) {
-        setIsLocked(true); // Locked on cold start if configured
-      } else {
-        setIsLocked(false);
       }
     } catch (e) {
       console.error('Failed to check auth status:', e);
@@ -94,6 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const res = await api.verifyPassword(password);
     if (res.success) {
       setIsLocked(false);
+      try { sessionStorage.setItem('raseedi_session_authed', '1'); } catch {}
       resetInactivityTimer();
     }
     return res;
@@ -105,10 +128,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsConfigured(true);
       setIsLocked(false);
       setHasCompletedSetup(true);
-      try { localStorage.setItem('raseedi_auth_dismissed', '1'); } catch {}
+      try { 
+        localStorage.setItem('raseedi_auth_configured', '1'); 
+        localStorage.setItem('raseedi_auth_dismissed', '1'); 
+        sessionStorage.setItem('raseedi_session_authed', '1');
+      } catch {}
       setHint(newHint);
       resetInactivityTimer();
-      await checkAuth();
+    }
+    return res;
+  };
+
+  const changePassword = async (currentPass: string, newPass: string, newHint?: string) => {
+    const res = await api.changePassword(currentPass, newPass, newHint);
+    if (res.success) {
+      setIsConfigured(true);
+      setHint(newHint);
+      setHasCompletedSetup(true);
+      try { 
+        localStorage.setItem('raseedi_auth_configured', '1'); 
+        localStorage.setItem('raseedi_auth_dismissed', '1'); 
+        sessionStorage.setItem('raseedi_session_authed', '1');
+      } catch {}
+      resetInactivityTimer();
     }
     return res;
   };
@@ -132,8 +174,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLocked(false);
       setHint(undefined);
       setHasCompletedSetup(true);
-      try { localStorage.setItem('raseedi_auth_dismissed', '1'); } catch {}
-      await checkAuth();
+      try { 
+        localStorage.removeItem('raseedi_auth_configured');
+        localStorage.setItem('raseedi_auth_dismissed', '1'); 
+        sessionStorage.removeItem('raseedi_session_authed');
+      } catch {}
     }
     return res;
   };
@@ -146,6 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       hint,
       login,
       setupPassword,
+      changePassword,
       skipSetup,
       removePassword,
       lockApp,

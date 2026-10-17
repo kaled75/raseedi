@@ -24,7 +24,7 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog';
 
 export const SettingsView: React.FC = () => {
   const { settings, updateSettings, theme, toggleTheme, hideBalances, toggleHideBalances } = useSettings();
-  const { isConfigured, checkAuth } = useAuth();
+  const { isConfigured, checkAuth, changePassword, removePassword } = useAuth();
   const { success, error, warning } = useToast();
 
   const [activeTab, setActiveTab] = useState<'general' | 'currency' | 'privacy' | 'demo' | 'maintenance'>('general');
@@ -100,7 +100,7 @@ export const SettingsView: React.FC = () => {
       return;
     }
     setPasswordLoading(true);
-    const res = await api.changePassword(currentPassword, newPassword, passwordHint);
+    const res = await changePassword(currentPassword, newPassword, passwordHint);
     if (res.success) {
       success(isConfigured ? 'تم تغيير كلمة المرور بنجاح' : 'تم تعيين كلمة المرور وتأمين التطبيق بنجاح');
       setCurrentPassword('');
@@ -120,7 +120,7 @@ export const SettingsView: React.FC = () => {
     }
     setPasswordLoading(true);
     try {
-      const res = await api.removePassword(currentPassword);
+      const res = await removePassword(currentPassword);
       if (res.success) {
         success('تم إلغاء كلمة المرور بنجاح. التطبيق الآن متاح بدون قفل.');
         setCurrentPassword('');
