@@ -39,7 +39,7 @@ export function generateHtmlReport(options: HtmlExportOptions): string {
   const dir = isArabic ? 'rtl' : 'ltr';
   const currency = options.currency || 'LYD';
 
-  let debts = getDebts({ include_archived: false });
+  let debts = getDebts({ include_archived: false }).filter(d => d.status !== 'cancelled');
   let payments = getPayments({ status: 'valid' });
   const contacts = getContacts();
 
@@ -425,7 +425,7 @@ export function exportCsv(filePath: string, type: 'debts' | 'payments' | 'contac
     const BOM = '\uFEFF'; // UTF-8 Byte Order Mark for Excel Arabic compatibility
 
     if (type === 'debts') {
-      const debts = getDebts({ include_archived: true });
+      const debts = getDebts({ include_archived: false }).filter(d => d.status !== 'cancelled');
       const headers = ['الرقم المرجعي', 'الشخص', 'رقم الهاتف', 'النوع', 'المبلغ الأصلي', 'المدفوع', 'المتبقي', 'العملة', 'تاريخ الإنشاء', 'تاريخ الاستحقاق', 'الحالة', 'الوصف', 'ملاحظات'];
       csv += headers.map(h => `"${h}"`).join(',') + '\r\n';
 
@@ -448,7 +448,7 @@ export function exportCsv(filePath: string, type: 'debts' | 'payments' | 'contac
         csv += row.map(v => `"${v}"`).join(',') + '\r\n';
       }
     } else if (type === 'payments') {
-      const payments = getPayments();
+      const payments = getPayments({ status: 'valid' });
       const headers = ['رقم الإيصال', 'الشخص', 'بيان الدين', 'مبلغ الدفعة', 'العملة', 'طريقة الدفع', 'الرصيد السابق', 'الرصيد الجديد', 'تاريخ الدفعة', 'الحالة', 'ملاحظات'];
       csv += headers.map(h => `"${h}"`).join(',') + '\r\n';
 
@@ -469,7 +469,7 @@ export function exportCsv(filePath: string, type: 'debts' | 'payments' | 'contac
         csv += row.map(v => `"${v}"`).join(',') + '\r\n';
       }
     } else if (type === 'contacts') {
-      const contacts = getContacts({ include_archived: true });
+      const contacts = getContacts();
       const headers = ['الاسم', 'الهاتف', 'البريد الإلكتروني', 'العنوان', 'مستحق لي', 'مستحق علي', 'صافي الرصيد', 'مؤرشف', 'ملاحظات'];
       csv += headers.map(h => `"${h}"`).join(',') + '\r\n';
 
@@ -505,7 +505,7 @@ export function exportXlsx(filePath: string): { success: boolean; filePath: stri
     const wb = XLSX.utils.book_new();
 
     // 1. Debts Sheet
-    const debts = getDebts({ include_archived: true }).map(d => ({
+    const debts = getDebts({ include_archived: false }).filter(d => d.status !== 'cancelled').map(d => ({
       'الرقم المرجعي': d.reference_no,
       'الشخص': d.contact_name || '',
       'رقم الهاتف': d.contact_phone || '',
@@ -524,7 +524,7 @@ export function exportXlsx(filePath: string): { success: boolean; filePath: stri
     XLSX.utils.book_append_sheet(wb, debtsWs, 'الديون');
 
     // 2. Contacts Sheet
-    const contacts = getContacts({ include_archived: true }).map(c => ({
+    const contacts = getContacts().map(c => ({
       'الاسم': c.name,
       'الهاتف': c.phone || '',
       'البريد الإلكتروني': c.email || '',
@@ -539,7 +539,7 @@ export function exportXlsx(filePath: string): { success: boolean; filePath: stri
     XLSX.utils.book_append_sheet(wb, contactsWs, 'الأشخاص');
 
     // 3. Payments Sheet
-    const payments = getPayments().map(p => ({
+    const payments = getPayments({ status: 'valid' }).map(p => ({
       'رقم الإيصال': p.receipt_no,
       'الشخص': p.contact_name || '',
       'بيان الدين': p.debt_description || '',

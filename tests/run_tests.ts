@@ -280,4 +280,50 @@ test('10. Dark Mode Configuration: Tailwind v4 custom-variant and HTML pre-load 
   );
 });
 
+test('11. Full Debt Deletion and Exclusion of Cancelled/Deleted Debts from Export', () => {
+  const testDbFile = path.resolve(__dirname, 'test_deletion.sqlite3');
+  if (fs.existsSync(testDbFile)) {
+    fs.unlinkSync(testDbFile);
+  }
+
+  const db = initDatabase(testDbFile);
+  runMigrations(db);
+
+  // 1. Insert contact
+  db.prepare("INSERT INTO contacts (id, name, created_at, updated_at) VALUES ('c_del', 'علي الهوني', datetime('now'), datetime('now'))").run();
+
+  // 2. Insert two debts
+  db.prepare("INSERT INTO debts (id, reference_no, contact_id, type, original_amount, currency, created_date, description, status, created_at, updated_at) VALUES ('d_keep', 'REF-KEEP', 'c_del', 'for_me', 500, 'LYD', '2026-04-01', 'دين ساري', 'open', datetime('now'), datetime('now'))").run();
+  db.prepare("INSERT INTO debts (id, reference_no, contact_id, type, original_amount, currency, created_date, description, status, created_at, updated_at) VALUES ('d_cancelled', 'REF-CANC', 'c_del', 'for_me', 300, 'LYD', '2026-04-02', 'دين تم إلغاؤه', 'cancelled', datetime('now'), datetime('now'))").run();
+  db.prepare("INSERT INTO debts (id, reference_no, contact_id, type, original_amount, currency, created_date, description, status, created_at, updated_at) VALUES ('d_purge', 'REF-PURG', 'c_del', 'for_me', 200, 'LYD', '2026-04-03', 'دين سيتم حذفه بالكامل', 'open', datetime('now'), datetime('now'))").run();
+
+  // 3. Insert payment for d_purge
+  db.prepare("INSERT INTO payments (id, receipt_no, debt_id, contact_id, amount, payment_date, payment_method, previous_balance, new_balance, status, created_at) VALUES ('p_purge', 'REC-DEL-1', 'd_purge', 'c_del', 50, datetime('now'), 'cash', 200, 150, 'valid', datetime('now'))").run();
+
+  // 4. Test generateHtmlReport excludes cancelled debt
+  const html = generateHtmlReport({ title: 'تقرير التدقيق', reportType: 'all' });
+  assert.ok(!html.includes('REF-CANC'), 'Cancelled debt REF-CANC must NOT appear in HTML report');
+  assert.ok(!html.includes('دين تم إلغاؤه'), 'Cancelled debt description must NOT appear in HTML report');
+  assert.ok(html.includes('REF-KEEP'), 'Active debt must appear in HTML report');
+
+  // 5. Test complete cascading deletion of d_purge
+  const { deleteDebt } = require('../electron/services/debtService');
+  const delRes = deleteDebt('d_purge');
+  assert.equal(delRes.success, true, 'deleteDebt must return success');
+
+  // Verify debt is gone completely
+  const debtCheck = db.prepare('SELECT * FROM debts WHERE id = ?').get('d_purge');
+  assert.equal(debtCheck, undefined, 'Debt d_purge must be completely removed from DB');
+
+  // Verify cascaded payment is gone completely
+  const paymentCheck = db.prepare('SELECT * FROM payments WHERE debt_id = ?').get('d_purge');
+  assert.equal(paymentCheck, undefined, 'Associated payment must be completely deleted with debt');
+
+  // Cleanup
+  db.close();
+  if (fs.existsSync(testDbFile)) {
+    try { fs.unlinkSync(testDbFile); } catch (e) {}
+  }
+});
+
 console.log('All backend, financial domain, About page, and asset test suites defined.');

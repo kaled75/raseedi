@@ -15,6 +15,7 @@ export type AuditAction =
   | 'CREATE_DEBT'
   | 'UPDATE_DEBT'
   | 'CANCEL_DEBT'
+  | 'DELETE_DEBT'
   | 'RECORD_PAYMENT'
   | 'PAYMENT_RECEIVED'
   | 'PAYMENT_MADE'

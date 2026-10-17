@@ -1,7 +1,7 @@
 {
   "name": "raseedi",
   "productName": "رَصيدي - Raseedi",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "تطبيق إدارة الديون الشخصية الاحترافي - Professional Personal Debt Manager",
   "main": "dist-electron/main.js",
   "scripts": {

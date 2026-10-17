@@ -26,6 +26,7 @@ const IPC_CHANNELS = {
   DEBTS_UPDATE: 'debts:update',
   DEBTS_CANCEL: 'debts:cancel',
   DEBTS_ARCHIVE: 'debts:archive',
+  DEBTS_DELETE: 'debts:delete',
 
   // Payments
   PAYMENTS_GET_ALL: 'payments:get-all',
@@ -100,6 +101,7 @@ export const api = {
   updateDebt: (id: string, data: any) => ipcRenderer.invoke(IPC_CHANNELS.DEBTS_UPDATE, { id, data }),
   cancelDebt: (id: string, reason: string) => ipcRenderer.invoke(IPC_CHANNELS.DEBTS_CANCEL, { id, reason }),
   archiveDebt: (id: string, archive = true) => ipcRenderer.invoke(IPC_CHANNELS.DEBTS_ARCHIVE, { id, archive }),
+  deleteDebt: (id: string) => ipcRenderer.invoke(IPC_CHANNELS.DEBTS_DELETE, id),
 
   // Payments
   getPayments: (filter?: any) => ipcRenderer.invoke(IPC_CHANNELS.PAYMENTS_GET_ALL, filter),

@@ -201,7 +201,7 @@ export function generateBrowserHtmlReport(
   const isDark = options.theme === 'dark';
   const currency = options.currency || 'LYD';
 
-  let filteredDebts = [...debts];
+  let filteredDebts = debts.filter(d => d.status !== 'cancelled' && !d.is_archived);
   if (options.reportType === 'for_me') filteredDebts = filteredDebts.filter(d => d.type === 'for_me');
   else if (options.reportType === 'on_me') filteredDebts = filteredDebts.filter(d => d.type === 'on_me');
   else if (options.reportType === 'overdue') filteredDebts = filteredDebts.filter(d => d.status === 'overdue' || d.is_overdue);
@@ -314,9 +314,10 @@ export function generateBrowserCsv(type: 'debts' | 'payments' | 'contacts', debt
   let csv = '';
 
   if (type === 'debts') {
+    const validDebts = debts.filter(d => d.status !== 'cancelled' && !d.is_archived);
     const headers = ['الرقم المرجعي', 'الشخص', 'رقم الهاتف', 'النوع', 'المبلغ الأصلي', 'المدفوع', 'المتبقي', 'العملة', 'تاريخ الإنشاء', 'تاريخ الاستحقاق', 'الحالة', 'الوصف'];
     csv += headers.map(h => `"${h}"`).join(',') + '\r\n';
-    for (const d of debts) {
+    for (const d of validDebts) {
       const row = [
         d.reference_no,
         d.contact_name || '',
@@ -334,9 +335,10 @@ export function generateBrowserCsv(type: 'debts' | 'payments' | 'contacts', debt
       csv += row.map(v => `"${v}"`).join(',') + '\r\n';
     }
   } else if (type === 'payments') {
+    const validPayments = payments.filter(p => p.status === 'valid');
     const headers = ['رقم الإيصال', 'الشخص', 'بيان الدين', 'مبلغ الدفعة', 'العملة', 'طريقة الدفع', 'الرصيد السابق', 'الرصيد الجديد', 'تاريخ الدفعة', 'الحالة'];
     csv += headers.map(h => `"${h}"`).join(',') + '\r\n';
-    for (const p of payments) {
+    for (const p of validPayments) {
       const row = [
         p.receipt_no,
         p.contact_name || '',
@@ -352,9 +354,10 @@ export function generateBrowserCsv(type: 'debts' | 'payments' | 'contacts', debt
       csv += row.map(v => `"${v}"`).join(',') + '\r\n';
     }
   } else {
+    const validContacts = contacts.filter(c => !c.is_archived);
     const headers = ['الاسم', 'الهاتف', 'مستحق لي', 'مستحق علي', 'صافي الرصيد', 'مؤرشف'];
     csv += headers.map(h => `"${h}"`).join(',') + '\r\n';
-    for (const c of contacts) {
+    for (const c of validContacts) {
       const row = [
         c.name,
         c.phone || '',
@@ -377,7 +380,8 @@ export function generateBrowserXlsx(debts: Debt[], payments: Payment[], contacts
   const wb = XLSX.utils.book_new();
 
   // 1. Debts
-  const debtsData = debts.map(d => ({
+  const validDebts = debts.filter(d => d.status !== 'cancelled' && !d.is_archived);
+  const debtsData = validDebts.map(d => ({
     'الرقم المرجعي': d.reference_no,
     'الشخص': d.contact_name || '',
     'الهاتف': d.contact_phone || '',
@@ -395,7 +399,8 @@ export function generateBrowserXlsx(debts: Debt[], payments: Payment[], contacts
   XLSX.utils.book_append_sheet(wb, debtsWs, 'الديون');
 
   // 2. Contacts
-  const contactsData = contacts.map(c => ({
+  const validContacts = contacts.filter(c => !c.is_archived);
+  const contactsData = validContacts.map(c => ({
     'الاسم': c.name,
     'الهاتف': c.phone || '',
     'مستحق لي': c.total_for_me || 0,
@@ -407,7 +412,8 @@ export function generateBrowserXlsx(debts: Debt[], payments: Payment[], contacts
   XLSX.utils.book_append_sheet(wb, contactsWs, 'الأشخاص');
 
   // 3. Payments
-  const paymentsData = payments.map(p => ({
+  const validPayments = payments.filter(p => p.status === 'valid');
+  const paymentsData = validPayments.map(p => ({
     'رقم الإيصال': p.receipt_no,
     'الشخص': p.contact_name || '',
     'بيان الدين': p.debt_description || '',

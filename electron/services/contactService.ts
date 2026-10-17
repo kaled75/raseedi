@@ -192,8 +192,8 @@ export function getContactStatement(contactId: string) {
   const contact = getContactById(contactId);
   if (!contact) return null;
 
-  const debts = getDebts({ contact_id: contactId, include_archived: true });
-  const payments = getPayments({ contact_id: contactId });
+  const debts = getDebts({ contact_id: contactId, include_archived: false }).filter(d => d.status !== 'cancelled');
+  const payments = getPayments({ contact_id: contactId, status: 'valid' });
 
   return {
     contact,

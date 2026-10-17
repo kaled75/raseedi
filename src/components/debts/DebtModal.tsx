@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Modal } from '../common/Modal';
 import { Contact, Debt, DebtType } from '../../types';
 import { api } from '../../utils/api';
@@ -33,9 +33,15 @@ export const DebtModal: React.FC<DebtModalProps> = ({
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
+  const [lastAddedRef, setLastAddedRef] = useState<string | null>(null);
+
+  const amountInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      setLastAddedRef(null);
+      return;
+    }
     if (debt) {
       setContactId(debt.contact_id);
       setType(debt.type);
@@ -44,6 +50,7 @@ export const DebtModal: React.FC<DebtModalProps> = ({
       setDueDate(debt.due_date || '');
       setDescription(debt.description);
       setNotes(debt.notes || '');
+      setLastAddedRef(null);
     } else {
       setContactId(prev => (prev && contacts.some(c => c.id === prev)) ? prev : (contacts.length > 0 ? contacts[0].id : ''));
       setType('for_me');
@@ -104,9 +111,19 @@ export const DebtModal: React.FC<DebtModalProps> = ({
       });
 
       if (res.success) {
-        success('تم تسجيل الدين بنجاح');
+        const refNo = res.debt?.reference_no || 'جديد';
+        setLastAddedRef(refNo);
+        success(`تم تسجيل الدين (${refNo}) بنجاح! يمكنك الآن تسجيل دين آخر مباشرة.`);
         onSaved();
-        onClose();
+
+        // Keep modal open, clear fields for the next debt entry
+        setAmount('');
+        setDescription('');
+        setNotes('');
+        setDueDate('');
+        setTimeout(() => {
+          amountInputRef.current?.focus();
+        }, 100);
       } else {
         error(res.message || 'فشل تسجيل الدين');
       }
@@ -129,6 +146,22 @@ export const DebtModal: React.FC<DebtModalProps> = ({
       maxWidth="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4 text-right">
+        {/* Success Banner when keeping modal open */}
+        {lastAddedRef && (
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 text-xs animate-fade-in">
+            <div className="flex items-center gap-2">
+              <span className="font-bold">✓ تم تسجيل الدين ({lastAddedRef}) بنجاح!</span>
+              <span className="text-emerald-600 dark:text-emerald-400">القائمة لا تزال مفتوحة لإضافة دين آخر مباشرة:</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setLastAddedRef(null)}
+              className="text-emerald-600 hover:text-emerald-900 dark:hover:text-emerald-100 font-bold px-1"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         {/* Debt Type Selector (Only if creating new) */}
         {!debt && (
           <div>
@@ -200,6 +233,7 @@ export const DebtModal: React.FC<DebtModalProps> = ({
             المبلغ الأصلي للدين ({currency}) <span className="text-rose-500">*</span>
           </label>
           <input
+            ref={amountInputRef}
             type="number"
             step="0.01"
             min="0.01"
@@ -297,20 +331,20 @@ export const DebtModal: React.FC<DebtModalProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+        <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800">
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium text-sm transition-colors"
+            className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 font-medium text-xs transition-colors"
           >
-            إلغاء
+            {lastAddedRef ? 'إنهاء وإغلاق النافذة' : 'إلغاء'}
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="px-6 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm transition-all shadow-sm shadow-sky-600/30 disabled:opacity-50"
+            className="px-6 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs transition-all shadow-sm shadow-sky-600/30 disabled:opacity-50"
           >
-            {loading ? 'جاري الحفظ...' : (debt ? 'حفظ التعديلات' : 'تسجيل الدين')}
+            {loading ? 'جاري الحفظ...' : (debt ? 'حفظ التعديلات' : '+ تسجيل الدين وإضافة آخر')}
           </button>
         </div>
       </form>

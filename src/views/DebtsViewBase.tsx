@@ -11,7 +11,8 @@ import {
   Clock, 
   CheckCircle2, 
   AlertCircle,
-  Filter
+  Filter,
+  Trash2
 } from 'lucide-react';
 import { Debt, DebtStatus, DebtType } from '../types';
 import { api } from '../utils/api';
@@ -55,6 +56,9 @@ export const DebtsViewBase: React.FC<DebtsViewBaseProps> = ({
   // Cancellation modal state
   const [cancellingDebtId, setCancellingDebtId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState('');
+
+  // Permanent Delete modal state
+  const [deletingDebtId, setDeletingDebtId] = useState<string | null>(null);
 
   const loadDebts = async () => {
     try {
@@ -106,6 +110,21 @@ export const DebtsViewBase: React.FC<DebtsViewBaseProps> = ({
 
     setCancellingDebtId(null);
     setCancelReason('');
+  };
+
+  const handleDeleteDebt = async () => {
+    if (!deletingDebtId) return;
+
+    const res = await api.deleteDebt(deletingDebtId);
+    if (res.success) {
+      success('تم حذف الدين وكافة السجلات المرتبطة به نهائياً بالكامل');
+      loadDebts();
+      onDataChange?.();
+    } else {
+      error(res.message || 'فشل حذف الدين');
+    }
+
+    setDeletingDebtId(null);
   };
 
   // Calculate totals for active list
@@ -323,12 +342,19 @@ export const DebtsViewBase: React.FC<DebtsViewBaseProps> = ({
                     {paid === 0 && debt.status !== 'cancelled' && (
                       <button
                         onClick={() => setCancellingDebtId(debt.id)}
-                        title="إلغاء الدين"
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800"
+                        title="إلغاء الدين وتوثيق السبب"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-950/40"
                       >
                         <XCircle className="w-3.5 h-3.5" />
                       </button>
                     )}
+                    <button
+                      onClick={() => setDeletingDebtId(debt.id)}
+                      title="حذف الدين نهائياً بالكامل"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -373,6 +399,17 @@ export const DebtsViewBase: React.FC<DebtsViewBaseProps> = ({
           </div>
         </div>
       )}
+
+      {/* Delete Debt Permanently Dialog */}
+      <ConfirmDialog
+        isOpen={!!deletingDebtId}
+        title="تأكيد حذف الدين نهائياً"
+        message="هل أنت متأكد من رغبتك في حذف هذا الدين نهائياً؟ تنبيه: سيتم حذف الدين وكافة سجلات الدفعات المرتبطة به بشكل كامل من النظام ولن يظهر في أي تقارير أو تصدير."
+        confirmText="تأكيد الحذف نهائياً"
+        isDestructive={true}
+        onConfirm={handleDeleteDebt}
+        onCancel={() => setDeletingDebtId(null)}
+      />
     </div>
   );
 };

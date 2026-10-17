@@ -23,6 +23,7 @@ export const IPC_CHANNELS = {
   DEBTS_UPDATE: 'debts:update',
   DEBTS_CANCEL: 'debts:cancel',
   DEBTS_ARCHIVE: 'debts:archive',
+  DEBTS_DELETE: 'debts:delete',
 
   // Payments
   PAYMENTS_GET_ALL: 'payments:get-all',

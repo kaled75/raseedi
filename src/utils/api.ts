@@ -336,7 +336,8 @@ export const api = {
   deleteContact: async (id: string) => {
     if (window.api) return window.api.deleteContact(id);
     // Cascade delete all associated payments and debts
-    mockPayments = mockPayments.filter(p => p.contact_id !== id);
+    const debtIds = mockDebts.filter(d => d.contact_id === id).map(d => d.id);
+    mockPayments = mockPayments.filter(p => p.contact_id !== id && !debtIds.includes(p.debt_id));
     mockDebts = mockDebts.filter(d => d.contact_id !== id);
     mockContacts = mockContacts.filter(c => c.id !== id);
     saveMockData();
@@ -345,8 +346,8 @@ export const api = {
   getContactStatement: async (contactId: string) => {
     if (window.api) return window.api.getContactStatement(contactId);
     const contact = mockContacts.find(c => c.id === contactId);
-    const debts = mockDebts.filter(d => d.contact_id === contactId);
-    const payments = mockPayments.filter(p => p.contact_id === contactId);
+    const debts = mockDebts.filter(d => d.contact_id === contactId && d.status !== 'cancelled' && !d.is_archived);
+    const payments = mockPayments.filter(p => p.contact_id === contactId && p.status === 'valid');
     return {
       contact,
       debts,
@@ -505,6 +506,47 @@ export const api = {
       debt.is_archived = archive ? 1 : 0;
       saveMockData();
     }
+    return { success: true };
+  },
+  deleteDebt: async (id: string) => {
+    if (window.api) return window.api.deleteDebt(id);
+    const debtIndex = mockDebts.findIndex(d => d.id === id);
+    if (debtIndex === -1) return { success: false, message: 'الدين غير موجود' };
+    const debt = mockDebts[debtIndex];
+
+    // Cascade delete all payments associated with this debt
+    mockPayments = mockPayments.filter(p => p.debt_id !== id);
+    mockDebts.splice(debtIndex, 1);
+
+    // Recalculate contact balances
+    const contact = mockContacts.find(c => c.id === debt.contact_id);
+    if (contact) {
+      const remainingDebts = mockDebts.filter(d => d.contact_id === contact.id && d.status !== 'cancelled' && !d.is_archived);
+      let forMe = 0;
+      let onMe = 0;
+      let count = 0;
+      for (const d of remainingDebts) {
+        const rem = d.remaining_amount !== undefined ? d.remaining_amount : d.original_amount;
+        if (d.type === 'for_me') forMe += rem;
+        else onMe += rem;
+        if (rem > 0) count++;
+      }
+      contact.total_for_me = forMe;
+      contact.total_on_me = onMe;
+      contact.net_balance = forMe - onMe;
+      contact.active_debts_count = count;
+    }
+
+    mockAuditLogs.unshift({
+      id: 'a_' + Date.now(),
+      action: 'DELETE_DEBT',
+      entity_type: 'debts',
+      entity_id: id,
+      details: `حذف الدين #${debt.reference_no} نهائياً بالكامل مع كافة مدفوعاته`,
+      timestamp: new Date().toISOString()
+    });
+
+    saveMockData();
     return { success: true };
   },
 
@@ -727,7 +769,10 @@ export const api = {
   exportHtml: async (filePath: string, options: any) => {
     if (window.api) return window.api.exportHtml(filePath, options);
     try {
-      const html = generateBrowserHtmlReport(options, mockDebts, mockPayments, mockContacts, mockSettings);
+      const activeDebts = mockDebts.filter(d => d.status !== 'cancelled' && !d.is_archived);
+      const validPayments = mockPayments.filter(p => p.status === 'valid');
+      const activeContacts = mockContacts.filter(c => !c.is_archived);
+      const html = generateBrowserHtmlReport(options, activeDebts, validPayments, activeContacts, mockSettings);
       await writeDataToDestination(filePath, html, 'text/html;charset=utf-8;');
       return { success: true, filePath };
     } catch (err: any) {
@@ -737,7 +782,10 @@ export const api = {
   exportCsv: async (filePath: string, type: 'debts' | 'payments' | 'contacts') => {
     if (window.api) return window.api.exportCsv(filePath, type);
     try {
-      const csv = generateBrowserCsv(type, mockDebts, mockPayments, mockContacts);
+      const activeDebts = mockDebts.filter(d => d.status !== 'cancelled' && !d.is_archived);
+      const validPayments = mockPayments.filter(p => p.status === 'valid');
+      const activeContacts = mockContacts.filter(c => !c.is_archived);
+      const csv = generateBrowserCsv(type, activeDebts, validPayments, activeContacts);
       await writeDataToDestination(filePath, csv, 'text/csv;charset=utf-8;');
       return { success: true, filePath };
     } catch (err: any) {
@@ -747,7 +795,10 @@ export const api = {
   exportXlsx: async (filePath: string) => {
     if (window.api) return window.api.exportXlsx(filePath);
     try {
-      const xlsxBuf = generateBrowserXlsx(mockDebts, mockPayments, mockContacts);
+      const activeDebts = mockDebts.filter(d => d.status !== 'cancelled' && !d.is_archived);
+      const validPayments = mockPayments.filter(p => p.status === 'valid');
+      const activeContacts = mockContacts.filter(c => !c.is_archived);
+      const xlsxBuf = generateBrowserXlsx(activeDebts, validPayments, activeContacts);
       await writeDataToDestination(filePath, xlsxBuf, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       return { success: true, filePath };
     } catch (err: any) {

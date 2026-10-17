@@ -317,3 +317,36 @@ export function archiveDebt(id: string, archive = true): { success: boolean; mes
     .run(archive ? 1 : 0, id);
   return { success: true };
 }
+
+export function deleteDebt(id: string): { success: boolean; message?: string } {
+  const db = getDatabase();
+  const existing = getDebtById(id);
+  if (!existing) {
+    return { success: false, message: 'الدين غير موجود' };
+  }
+
+  const deleteTx = db.transaction(() => {
+    // 1. Delete all payments associated with this debt
+    db.prepare('DELETE FROM payments WHERE debt_id = ?').run(id);
+
+    // 2. Delete the debt itself
+    db.prepare('DELETE FROM debts WHERE id = ?').run(id);
+
+    // 3. Audit log the deletion
+    logAudit('DELETE_DEBT', 'debt', id, {
+      reference_no: existing.reference_no,
+      contact_id: existing.contact_id,
+      contact_name: existing.contact_name,
+      amount: existing.original_amount,
+      type: existing.type,
+      note: 'Deleted debt and cascaded associated payments completely'
+    });
+  });
+
+  try {
+    deleteTx();
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'فشل حذف الدين' };
+  }
+}

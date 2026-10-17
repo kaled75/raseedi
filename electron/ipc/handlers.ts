@@ -122,6 +122,10 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return debtService.archiveDebt(id, archive);
   });
 
+  ipcMain.handle(IPC_CHANNELS.DEBTS_DELETE, async (_, id) => {
+    return debtService.deleteDebt(id);
+  });
+
   // Payments
   ipcMain.handle(IPC_CHANNELS.PAYMENTS_GET_ALL, async (_, filter) => {
     return paymentService.getPayments(filter);
