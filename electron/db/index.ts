@@ -10,25 +10,40 @@ export function getDatabasePath(): string {
   if (currentDbPath) return currentDbPath;
 
   let baseDir = '';
-  try {
-    if (process.versions && (process.versions as any).electron) {
-      const electron = require('electron');
-      const app = electron.app || (electron.remote && electron.remote.app);
-      if (app && typeof app.getPath === 'function') {
-        baseDir = app.getPath('userData');
-      }
+
+  // 1. If running as portable and a local data directory exists next to the exe
+  if (process.env.PORTABLE_EXECUTABLE_DIR) {
+    const localData = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'data');
+    if (fs.existsSync(localData)) {
+      baseDir = localData;
     }
-  } catch (e) {
-    // Fallback if not inside running electron main yet
   }
 
-  // Windows permanent AppData fallback - ALWAYS permanent across restarts and portable runs
-  if (!baseDir && process.env.APPDATA) {
-    baseDir = path.join(process.env.APPDATA, 'رَصيدي - Raseedi');
-  } else if (!baseDir && process.env.USERPROFILE) {
-    baseDir = path.join(process.env.USERPROFILE, 'AppData', 'Roaming', 'رَصيدي - Raseedi');
-  } else if (!baseDir) {
-    baseDir = path.resolve(process.cwd(), 'data');
+  // 2. Electron userData path
+  if (!baseDir) {
+    try {
+      if (process.versions && (process.versions as any).electron) {
+        const electron = require('electron');
+        const app = electron.app || (electron.remote && electron.remote.app);
+        if (app && typeof app.getPath === 'function') {
+          baseDir = app.getPath('userData');
+        }
+      }
+    } catch (e) {
+      // Fallback
+    }
+  }
+
+  // 3. Windows permanent AppData fallback - ALWAYS permanent across restarts and portable runs
+  if (!baseDir) {
+    const userProfile = process.env.USERPROFILE || (process.env.HOMEDRIVE && process.env.HOMEPATH ? `${process.env.HOMEDRIVE}${process.env.HOMEPATH}` : '');
+    if (userProfile) {
+      baseDir = path.join(userProfile, 'AppData', 'Roaming', 'رَصيدي - Raseedi');
+    } else if (process.env.APPDATA) {
+      baseDir = path.join(process.env.APPDATA, 'رَصيدي - Raseedi');
+    } else {
+      baseDir = path.resolve(process.cwd(), 'data');
+    }
   }
 
   if (!fs.existsSync(baseDir)) {
@@ -70,7 +85,7 @@ export function initDatabase(customPath?: string): Database.Database {
 export function checkpointDatabase(): void {
   if (dbInstance) {
     try {
-      dbInstance.pragma('wal_checkpoint(PASSIVE)');
+      dbInstance.pragma('wal_checkpoint(TRUNCATE)');
     } catch (e) {
       console.error('Error checkpointing database:', e);
     }

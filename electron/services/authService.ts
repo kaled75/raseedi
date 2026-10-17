@@ -23,12 +23,20 @@ export function logAudit(action: AuditLog['action'], entityType: string, entityI
   }
 }
 
-export function getAuthStatus(): { isConfigured: boolean; isLocked: boolean; hint?: string } {
+export function getAuthStatus(): { 
+  isConfigured: boolean; 
+  isLocked: boolean; 
+  hasCompletedSetup: boolean; 
+  hint?: string 
+} {
   const db = getDatabase();
   const row = db.prepare('SELECT * FROM local_auth WHERE id = 1').get() as LocalAuth | undefined;
+  const dismissedRow = db.prepare("SELECT value FROM app_settings WHERE key = 'initial_setup_dismissed'").get() as { value: string } | undefined;
+
+  const hasCompletedSetup = !!(row && row.is_configured) || (dismissedRow?.value === '1');
 
   if (!row || !row.is_configured) {
-    return { isConfigured: false, isLocked: false };
+    return { isConfigured: false, isLocked: false, hasCompletedSetup };
   }
 
   const now = new Date().toISOString();
@@ -37,8 +45,20 @@ export function getAuthStatus(): { isConfigured: boolean; isLocked: boolean; hin
   return {
     isConfigured: true,
     isLocked: isTemporarilyLocked,
+    hasCompletedSetup: true,
     hint: row.hint || undefined
   };
+}
+
+export function dismissInitialSetup(): { success: boolean } {
+  const db = getDatabase();
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES ('initial_setup_dismissed', '1', datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET value = '1', updated_at = datetime('now')
+  `).run();
+  checkpointDatabase();
+  return { success: true };
 }
 
 export function setupInitialPassword(password: string, hint?: string): { success: boolean; message?: string } {
@@ -64,8 +84,37 @@ export function setupInitialPassword(password: string, hint?: string): { success
       updated_at = excluded.updated_at
   `).run(passwordHash, salt, hint || null, now, now);
 
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES ('initial_setup_dismissed', '1', datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET value = '1', updated_at = datetime('now')
+  `).run();
+
   checkpointDatabase();
   logAudit('AUTH_SETUP', 'auth', '1', { hintSet: !!hint });
+  return { success: true };
+}
+
+export function removePassword(currentPassword: string): { success: boolean; message?: string } {
+  const db = getDatabase();
+  const row = db.prepare('SELECT * FROM local_auth WHERE id = 1').get() as LocalAuth | undefined;
+  if (!row || !row.is_configured) {
+    return { success: true };
+  }
+
+  const verify = verifyPassword(currentPassword);
+  if (!verify.success) {
+    return { success: false, message: verify.message || 'كلمة المرور الحالية غير صحيحة' };
+  }
+
+  db.prepare('DELETE FROM local_auth WHERE id = 1').run();
+  db.prepare(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES ('initial_setup_dismissed', '1', datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET value = '1', updated_at = datetime('now')
+  `).run();
+  checkpointDatabase();
+  logAudit('AUTH_REMOVE_PASSWORD', 'auth', '1', { removed: true });
   return { success: true };
 }
 

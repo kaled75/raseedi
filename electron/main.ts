@@ -4,6 +4,36 @@ import fs from 'fs';
 import { initDatabase, closeDatabase } from './db';
 import { registerIpcHandlers } from './ipc/handlers';
 
+// Calculate permanent userData directory
+const userProfile = process.env.USERPROFILE || (process.env.HOMEDRIVE && process.env.HOMEPATH ? `${process.env.HOMEDRIVE}${process.env.HOMEPATH}` : '');
+const permanentAppData = userProfile 
+  ? path.join(userProfile, 'AppData', 'Roaming', 'رَصيدي - Raseedi')
+  : (process.env.APPDATA ? path.join(process.env.APPDATA, 'رَصيدي - Raseedi') : path.join(process.cwd(), 'data'));
+
+let userDataDir = permanentAppData;
+
+// Check if running in Portable mode with a local data directory next to the executable
+if (process.env.PORTABLE_EXECUTABLE_DIR) {
+  const localDataDir = path.join(process.env.PORTABLE_EXECUTABLE_DIR, 'data');
+  if (fs.existsSync(localDataDir)) {
+    userDataDir = localDataDir;
+  } else {
+    // Use permanent AppData so installed and portable share persistent database on this computer
+    userDataDir = permanentAppData;
+  }
+}
+
+if (!fs.existsSync(userDataDir)) {
+  fs.mkdirSync(userDataDir, { recursive: true });
+}
+
+// Crucial: Set userData early before Chromium and app initialization
+try {
+  app.setPath('userData', userDataDir);
+} catch (e) {
+  console.error('Failed to set userData path:', e);
+}
+
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
@@ -30,11 +60,7 @@ function createWindow() {
   // Remove default menu for SaaS desktop feel
   Menu.setApplicationMenu(null);
 
-  // Explicitly ensure permanent userData path for database
-  const userDataDir = path.join(app.getPath('appData'), 'رَصيدي - Raseedi');
-  if (!fs.existsSync(userDataDir)) {
-    fs.mkdirSync(userDataDir, { recursive: true });
-  }
+  // Initialize database in persistent userDataDir
   const dbPath = path.join(userDataDir, 'raseedi.sqlite3');
   initDatabase(dbPath);
 

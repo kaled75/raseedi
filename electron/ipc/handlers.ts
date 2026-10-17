@@ -15,19 +15,57 @@ import { checkDatabaseIntegrity } from '../db';
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // Auth
   ipcMain.handle(IPC_CHANNELS.AUTH_GET_STATUS, async () => {
-    return authService.getAuthStatus();
+    try {
+      return authService.getAuthStatus();
+    } catch (e: any) {
+      console.error('Error in AUTH_GET_STATUS:', e);
+      return { isConfigured: false, isLocked: false, hasCompletedSetup: true };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.AUTH_SETUP, async (_, { password, hint }) => {
-    return authService.setupInitialPassword(password, hint);
+    try {
+      return authService.setupInitialPassword(password, hint);
+    } catch (e: any) {
+      console.error('Error in AUTH_SETUP:', e);
+      return { success: false, message: e?.message || 'حدث خطأ أثناء حفظ كلمة المرور' };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.AUTH_VERIFY, async (_, { password }) => {
-    return authService.verifyPassword(password);
+    try {
+      return authService.verifyPassword(password);
+    } catch (e: any) {
+      console.error('Error in AUTH_VERIFY:', e);
+      return { success: false, message: e?.message || 'فشل التحقق من كلمة المرور' };
+    }
   });
 
   ipcMain.handle(IPC_CHANNELS.AUTH_CHANGE_PASSWORD, async (_, { currentPassword, newPassword, hint }) => {
-    return authService.changePassword(currentPassword, newPassword, hint);
+    try {
+      return authService.changePassword(currentPassword, newPassword, hint);
+    } catch (e: any) {
+      console.error('Error in AUTH_CHANGE_PASSWORD:', e);
+      return { success: false, message: e?.message || 'فشل تغيير كلمة المرور' };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.AUTH_DISMISS_INITIAL_SETUP, async () => {
+    try {
+      return authService.dismissInitialSetup();
+    } catch (e: any) {
+      console.error('Error in AUTH_DISMISS_INITIAL_SETUP:', e);
+      return { success: true };
+    }
+  });
+
+  ipcMain.handle(IPC_CHANNELS.AUTH_REMOVE_PASSWORD, async (_, { currentPassword }) => {
+    try {
+      return authService.removePassword(currentPassword);
+    } catch (e: any) {
+      console.error('Error in AUTH_REMOVE_PASSWORD:', e);
+      return { success: false, message: e?.message || 'فشل إزالة كلمة المرور' };
+    }
   });
 
   // Contacts

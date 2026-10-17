@@ -7,7 +7,7 @@ import { runMigrations } from '../electron/db/migrations';
 import { roundMoney, generateReferenceNo } from '../electron/services/debtService';
 import { escapeHtml, generateHtmlReport } from '../electron/services/exportService';
 import { calculateFileSha256 } from '../electron/services/backupService';
-import { setupInitialPassword, verifyPassword, changePassword, getAuthStatus } from '../electron/services/authService';
+import { setupInitialPassword, verifyPassword, changePassword, getAuthStatus, dismissInitialSetup, removePassword } from '../electron/services/authService';
 import { initDatabase } from '../electron/db';
 
 test('1. Financial precision: Exact rounding without floating point drift', () => {
@@ -240,6 +240,23 @@ test('9. Authentication security: Password verification, rejection, and change v
   // 10. Random password must fail
   const randomAttempt = verifyPassword('RandomAttempt');
   assert.equal(randomAttempt.success, false);
+
+  // 11. Remove password with wrong password must fail
+  const removeFailed = removePassword('WrongPass');
+  assert.equal(removeFailed.success, false);
+
+  // 12. Remove password with correct password must succeed
+  const removeSuccess = removePassword('NewSecret#99');
+  assert.equal(removeSuccess.success, true);
+
+  const statusAfterRemove = getAuthStatus();
+  assert.equal(statusAfterRemove.isConfigured, false);
+  assert.equal(statusAfterRemove.hasCompletedSetup, true);
+
+  // 13. Dismiss initial setup when unconfigured
+  const dismissRes = dismissInitialSetup();
+  assert.equal(dismissRes.success, true);
+  assert.equal(getAuthStatus().hasCompletedSetup, true);
 
   // Cleanup
   if (fs.existsSync(testDbFile)) {

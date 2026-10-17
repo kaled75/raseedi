@@ -7,6 +7,7 @@ export type AuditAction =
   | 'AUTH_LOGIN'
   | 'AUTH_LOCK'
   | 'AUTH_CHANGE_PASSWORD'
+  | 'AUTH_REMOVE_PASSWORD'
   | 'CREATE_CONTACT'
   | 'UPDATE_CONTACT'
   | 'ARCHIVE_CONTACT'

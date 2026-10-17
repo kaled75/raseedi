@@ -230,17 +230,19 @@ initMockData();
 let isPasswordSet = false;
 let mockCurrentPassword = '';
 let isLocked = false;
+let isInitialSetupDismissed = false;
 
 export const api = {
   // Auth
   getAuthStatus: async () => {
     if (window.api) return window.api.getAuthStatus();
-    return { isConfigured: isPasswordSet, isLocked };
+    return { isConfigured: isPasswordSet, isLocked, hasCompletedSetup: isPasswordSet || isInitialSetupDismissed };
   },
   setupPassword: async (password: string, hint?: string) => {
     if (window.api) return window.api.setupPassword(password, hint);
     mockCurrentPassword = password;
     isPasswordSet = true;
+    isInitialSetupDismissed = true;
     return { success: true };
   },
   verifyPassword: async (password: string) => {
@@ -256,6 +258,22 @@ export const api = {
     }
     mockCurrentPassword = newPass;
     isPasswordSet = true;
+    isInitialSetupDismissed = true;
+    return { success: true };
+  },
+  dismissInitialSetup: async () => {
+    if (window.api) return window.api.dismissInitialSetup();
+    isInitialSetupDismissed = true;
+    return { success: true };
+  },
+  removePassword: async (currentPassword: string) => {
+    if (window.api) return window.api.removePassword(currentPassword);
+    if (isPasswordSet && currentPassword !== mockCurrentPassword) {
+      return { success: false, message: 'كلمة المرور الحالية غير صحيحة' };
+    }
+    mockCurrentPassword = '';
+    isPasswordSet = false;
+    isInitialSetupDismissed = true;
     return { success: true };
   },
 

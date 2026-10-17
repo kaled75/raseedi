@@ -113,6 +113,30 @@ export const SettingsView: React.FC = () => {
     setPasswordLoading(false);
   };
 
+  const handleRemovePassword = async () => {
+    if (!currentPassword) {
+      error('يرجى إدخال كلمة المرور الحالية لتأكيد إزالة الحماية');
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      const res = await api.removePassword(currentPassword);
+      if (res.success) {
+        success('تم إلغاء كلمة المرور بنجاح. التطبيق الآن متاح بدون قفل.');
+        setCurrentPassword('');
+        setNewPassword('');
+        setPasswordHint('');
+        await checkAuth();
+      } else {
+        error(res.message || 'فشلت إزالة كلمة المرور');
+      }
+    } catch (e: any) {
+      error(e?.message || 'حدث خطأ أثناء إزالة كلمة المرور');
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
   const handleSeedDemo = async () => {
     setDemoLoading(true);
     const res = await api.seedDemoData();
@@ -396,13 +420,26 @@ export const SettingsView: React.FC = () => {
               />
             </div>
 
-            <button
-              type="submit"
-              disabled={passwordLoading}
-              className="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold shadow-sm transition-all disabled:opacity-50"
-            >
-              {passwordLoading ? 'جاري الحفظ...' : (isConfigured ? 'تحديث كلمة المرور' : 'تعيين كلمة المرور وتأمين التطبيق')}
-            </button>
+            <div className="space-y-2 pt-1">
+              <button
+                type="submit"
+                disabled={passwordLoading}
+                className="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold shadow-sm transition-all disabled:opacity-50"
+              >
+                {passwordLoading ? 'جاري الحفظ...' : (isConfigured ? 'تحديث كلمة المرور' : 'تعيين كلمة المرور وتأمين التطبيق')}
+              </button>
+
+              {isConfigured && (
+                <button
+                  type="button"
+                  onClick={handleRemovePassword}
+                  disabled={passwordLoading}
+                  className="w-full py-2 px-4 rounded-xl border border-rose-200 dark:border-rose-900/50 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 font-bold text-xs transition-all flex items-center justify-center gap-1.5"
+                >
+                  <span>إلغاء قفل التطبيق (تعطيل كلمة المرور)</span>
+                </button>
+              )}
+            </div>
           </form>
 
           {/* Privacy & Auto-lock */}

@@ -4,6 +4,8 @@ export const IPC_CHANNELS = {
   AUTH_SETUP: 'auth:setup',
   AUTH_VERIFY: 'auth:verify',
   AUTH_CHANGE_PASSWORD: 'auth:change-password',
+  AUTH_DISMISS_INITIAL_SETUP: 'auth:dismiss-initial-setup',
+  AUTH_REMOVE_PASSWORD: 'auth:remove-password',
 
   // Contacts
   CONTACTS_GET_ALL: 'contacts:get-all',

@@ -8,6 +8,8 @@ export const api = {
   verifyPassword: (password: string) => ipcRenderer.invoke(IPC_CHANNELS.AUTH_VERIFY, { password }),
   changePassword: (currentPassword: string, newPassword: string, hint?: string) => 
     ipcRenderer.invoke(IPC_CHANNELS.AUTH_CHANGE_PASSWORD, { currentPassword, newPassword, hint }),
+  dismissInitialSetup: () => ipcRenderer.invoke(IPC_CHANNELS.AUTH_DISMISS_INITIAL_SETUP),
+  removePassword: (currentPassword: string) => ipcRenderer.invoke(IPC_CHANNELS.AUTH_REMOVE_PASSWORD, { currentPassword }),
 
   // Contacts
   getContacts: (filter?: any) => ipcRenderer.invoke(IPC_CHANNELS.CONTACTS_GET_ALL, filter),
