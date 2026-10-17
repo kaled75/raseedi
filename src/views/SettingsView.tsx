@@ -16,6 +16,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { api } from '../utils/api';
 import { AuditLog } from '../types';
@@ -23,6 +24,7 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog';
 
 export const SettingsView: React.FC = () => {
   const { settings, updateSettings, theme, toggleTheme, hideBalances, toggleHideBalances } = useSettings();
+  const { isConfigured, checkAuth } = useAuth();
   const { success, error, warning } = useToast();
 
   const [activeTab, setActiveTab] = useState<'general' | 'currency' | 'privacy' | 'demo' | 'maintenance'>('general');
@@ -100,12 +102,13 @@ export const SettingsView: React.FC = () => {
     setPasswordLoading(true);
     const res = await api.changePassword(currentPassword, newPassword, passwordHint);
     if (res.success) {
-      success('تم تغيير كلمة المرور بنجاح');
+      success(isConfigured ? 'تم تغيير كلمة المرور بنجاح' : 'تم تعيين كلمة المرور وتأمين التطبيق بنجاح');
       setCurrentPassword('');
       setNewPassword('');
       setPasswordHint('');
+      await checkAuth();
     } else {
-      error(res.message || 'فشل تغيير كلمة المرور');
+      error(res.message || 'فشل حفظ كلمة المرور');
     }
     setPasswordLoading(false);
   };
@@ -334,49 +337,62 @@ export const SettingsView: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl text-xs">
           {/* Change Password */}
           <form onSubmit={handleChangePassword} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-              <KeyRound className="w-4 h-4 text-sky-600" />
-              <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">تغيير كلمة المرور المحلية</h3>
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <KeyRound className="w-4 h-4 text-sky-600" />
+                <h3 className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                  {isConfigured ? 'تغيير كلمة المرور المحلية' : 'تعيين كلمة مرور للتطبيق'}
+                </h3>
+              </div>
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                isConfigured 
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' 
+                  : 'bg-amber-50 text-amber-700 dark:bg-amber-950/60 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+              }`}>
+                {isConfigured ? 'التطبيق محمي بكلمة مرور' : 'لم يتم تعيين كلمة مرور بعد'}
+              </span>
             </div>
+
+            {isConfigured && (
+              <div>
+                <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  كلمة المرور الحالية <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-3 text-sm font-mono text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
+                />
+              </div>
+            )}
 
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                كلمة المرور الحالية
-              </label>
-              <input
-                type="password"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-3 text-sm font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                كلمة المرور الجديدة
+                {isConfigured ? 'كلمة المرور الجديدة' : 'كلمة المرور لحماية التطبيق'} <span className="text-rose-500">*</span>
               </label>
               <input
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="•••••••• (4 خانات على الأقل)"
                 required
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-3 text-sm font-mono"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-3 text-sm font-mono text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
               />
             </div>
 
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                تلميح جديد لكلمة المرور (اختياري)
+                تلميح لكلمة المرور (اختياري)
               </label>
               <input
                 type="text"
                 value={passwordHint}
                 onChange={(e) => setPasswordHint(e.target.value)}
-                placeholder="تلميح لتذكر كلمة المرور..."
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-3 text-xs"
+                placeholder="تلميح لتذكر كلمة المرور في حال نسيانها..."
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl py-2 px-3 text-xs text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-sky-500/20"
               />
             </div>
 
@@ -385,7 +401,7 @@ export const SettingsView: React.FC = () => {
               disabled={passwordLoading}
               className="w-full py-2.5 px-4 rounded-xl bg-sky-600 hover:bg-sky-700 text-white font-bold shadow-sm transition-all disabled:opacity-50"
             >
-              {passwordLoading ? 'جاري الحفظ...' : 'تحديث كلمة المرور'}
+              {passwordLoading ? 'جاري الحفظ...' : (isConfigured ? 'تحديث كلمة المرور' : 'تعيين كلمة المرور وتأمين التطبيق')}
             </button>
           </form>
 

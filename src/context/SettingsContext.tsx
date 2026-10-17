@@ -17,16 +17,22 @@ interface SettingsContextType {
 const SettingsContext = createContext<SettingsContextType | null>(null);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [settings, setSettings] = useState<Record<string, string>>({
-    app_name: 'رَصيدي',
-    owner_name: '',
-    currency: 'LYD',
-    currency_decimals: '2',
-    currency_symbol_position: 'after',
-    theme: 'light',
-    language: 'ar',
-    lock_timeout_minutes: '15',
-    privacy_hide_balances: '0'
+  const [settings, setSettings] = useState<Record<string, string>>(() => {
+    let savedTheme = 'light';
+    try {
+      savedTheme = localStorage.getItem('raseedi_theme') || 'light';
+    } catch (e) {}
+    return {
+      app_name: 'رَصيدي',
+      owner_name: '',
+      currency: 'LYD',
+      currency_decimals: '2',
+      currency_symbol_position: 'after',
+      theme: savedTheme,
+      language: 'ar',
+      lock_timeout_minutes: '15',
+      privacy_hide_balances: '0'
+    };
   });
 
   const currency = settings.currency || 'LYD';
@@ -37,8 +43,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const applyTheme = useCallback((currentTheme: 'light' | 'dark') => {
     if (currentTheme === 'dark') {
       document.documentElement.classList.add('dark');
+      try {
+        localStorage.setItem('raseedi_theme', 'dark');
+      } catch (e) {}
     } else {
       document.documentElement.classList.remove('dark');
+      try {
+        localStorage.setItem('raseedi_theme', 'light');
+      } catch (e) {}
     }
   }, []);
 
@@ -47,7 +59,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       const data = await api.getSettings();
       if (data && Object.keys(data).length > 0) {
         setSettings(data);
-        applyTheme(data.theme === 'dark' ? 'dark' : 'light');
+        const resolvedTheme = (data.theme === 'dark' ? 'dark' : 'light');
+        applyTheme(resolvedTheme);
       }
     } catch (e) {
       console.error('Failed to load settings:', e);
@@ -55,16 +68,18 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [applyTheme]);
 
   useEffect(() => {
+    // Initial sync
+    applyTheme(theme);
     refreshSettings();
-  }, [refreshSettings]);
+  }, [applyTheme, refreshSettings]);
 
   const updateSettings = async (newSettings: Record<string, string>) => {
+    if (newSettings.theme) {
+      applyTheme(newSettings.theme === 'dark' ? 'dark' : 'light');
+    }
+    setSettings(prev => ({ ...prev, ...newSettings }));
     try {
       await api.updateSettings(newSettings);
-      setSettings(prev => ({ ...prev, ...newSettings }));
-      if (newSettings.theme) {
-        applyTheme(newSettings.theme === 'dark' ? 'dark' : 'light');
-      }
       return true;
     } catch (e) {
       console.error('Failed to update settings:', e);

@@ -74,11 +74,15 @@ export function setupInitialPassword(password: string, hint?: string): { success
 }
 
 export function verifyPassword(password: string): { success: boolean; message?: string } {
+  if (!password) {
+    return { success: false, message: 'يرجى إدخال كلمة المرور' };
+  }
+
   const db = getDatabase();
   const row = db.prepare('SELECT * FROM local_auth WHERE id = 1').get() as LocalAuth | undefined;
 
   if (!row || !row.is_configured) {
-    return { success: true }; // No password set
+    return { success: false, message: 'لم يتم إعداد كلمة مرور بعد في التطبيق' };
   }
 
   const now = new Date();
@@ -91,7 +95,12 @@ export function verifyPassword(password: string): { success: boolean; message?: 
   }
 
   const computedHash = hashPassword(password, row.salt);
-  const isMatch = crypto.timingSafeEqual(Buffer.from(computedHash, 'hex'), Buffer.from(row.password_hash, 'hex'));
+  let isMatch = false;
+  try {
+    isMatch = crypto.timingSafeEqual(Buffer.from(computedHash, 'hex'), Buffer.from(row.password_hash, 'hex'));
+  } catch (e) {
+    isMatch = false;
+  }
 
   if (isMatch) {
     // Reset failed attempts
@@ -122,21 +131,34 @@ export function changePassword(currentPass: string, newPass: string, hint?: stri
     return { success: false, message: 'كلمة المرور الجديدة يجب أن تكون 4 خانات على الأقل' };
   }
 
-  const verify = verifyPassword(currentPass);
-  if (!verify.success) {
-    return { success: false, message: 'كلمة المرور الحالية غير صحيحة' };
+  const db = getDatabase();
+  const existing = db.prepare('SELECT * FROM local_auth WHERE id = 1').get() as LocalAuth | undefined;
+
+  // If a password was already configured, require verifying current password
+  if (existing && existing.is_configured) {
+    const verify = verifyPassword(currentPass);
+    if (!verify.success) {
+      return { success: false, message: verify.message || 'كلمة المرور الحالية غير صحيحة' };
+    }
   }
 
-  const db = getDatabase();
   const salt = crypto.randomBytes(32).toString('hex');
   const passwordHash = hashPassword(newPass, salt);
   const now = new Date().toISOString();
 
+  // Robust UPSERT ensuring row exists and is_configured is set to 1
   db.prepare(`
-    UPDATE local_auth 
-    SET password_hash = ?, salt = ?, hint = ?, failed_attempts = 0, locked_until = NULL, updated_at = ?
-    WHERE id = 1
-  `).run(passwordHash, salt, hint || null, now);
+    INSERT INTO local_auth (id, password_hash, salt, hint, is_configured, failed_attempts, created_at, updated_at)
+    VALUES (1, ?, ?, ?, 1, 0, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      password_hash = excluded.password_hash,
+      salt = excluded.salt,
+      hint = excluded.hint,
+      is_configured = 1,
+      failed_attempts = 0,
+      locked_until = NULL,
+      updated_at = excluded.updated_at
+  `).run(passwordHash, salt, hint || null, now, now);
 
   logAudit('AUTH_CHANGE_PASSWORD', 'auth', '1', { hintUpdated: !!hint });
   return { success: true };

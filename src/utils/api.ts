@@ -227,27 +227,35 @@ function initMockData() {
 
 initMockData();
 
-let isPasswordSet = true;
+let isPasswordSet = false;
+let mockCurrentPassword = '';
 let isLocked = false;
 
 export const api = {
   // Auth
   getAuthStatus: async () => {
     if (window.api) return window.api.getAuthStatus();
-    return { isConfigured: isPasswordSet, isLocked: false };
+    return { isConfigured: isPasswordSet, isLocked };
   },
   setupPassword: async (password: string, hint?: string) => {
     if (window.api) return window.api.setupPassword(password, hint);
+    mockCurrentPassword = password;
     isPasswordSet = true;
     return { success: true };
   },
   verifyPassword: async (password: string) => {
     if (window.api) return window.api.verifyPassword(password);
-    if (password === '1234' || !isPasswordSet) return { success: true };
-    return { success: true }; // In browser mock accept
+    if (!isPasswordSet) return { success: false, message: 'لم يتم إعداد كلمة مرور بعد' };
+    if (password === mockCurrentPassword) return { success: true };
+    return { success: false, message: 'كلمة المرور غير صحيحة' };
   },
   changePassword: async (currentPass: string, newPass: string, hint?: string) => {
     if (window.api) return window.api.changePassword(currentPass, newPass, hint);
+    if (isPasswordSet && currentPass !== mockCurrentPassword) {
+      return { success: false, message: 'كلمة المرور الحالية غير صحيحة' };
+    }
+    mockCurrentPassword = newPass;
+    isPasswordSet = true;
     return { success: true };
   },
 

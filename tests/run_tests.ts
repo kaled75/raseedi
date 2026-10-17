@@ -7,6 +7,8 @@ import { runMigrations } from '../electron/db/migrations';
 import { roundMoney, generateReferenceNo } from '../electron/services/debtService';
 import { escapeHtml, generateHtmlReport } from '../electron/services/exportService';
 import { calculateFileSha256 } from '../electron/services/backupService';
+import { setupInitialPassword, verifyPassword, changePassword, getAuthStatus } from '../electron/services/authService';
+import { initDatabase } from '../electron/db';
 
 test('1. Financial precision: Exact rounding without floating point drift', () => {
   const sum = 0.1 + 0.2;
@@ -190,6 +192,75 @@ test('8. Application Icon validation: Multi-size ICO and PNG', () => {
   assert.equal(pngBuf[1], 0x50);
   assert.equal(pngBuf[2], 0x4e);
   assert.equal(pngBuf[3], 0x47);
+});
+
+test('9. Authentication security: Password verification, rejection, and change validation', () => {
+  const testDbFile = path.join(__dirname, 'test_auth.sqlite3');
+  if (fs.existsSync(testDbFile)) fs.unlinkSync(testDbFile);
+  
+  initDatabase(testDbFile);
+
+  // 1. When unconfigured, any password attempt MUST be rejected
+  const unconfiguredAttempt = verifyPassword('anyPassword123');
+  assert.equal(unconfiguredAttempt.success, false, 'Unconfigured auth must NOT accept passwords');
+
+  // 2. Setup initial password 'Admin@2026'
+  const setupRes = setupInitialPassword('Admin@2026', 'سنة ٢٠٢٦');
+  assert.equal(setupRes.success, true);
+
+  // 3. Status must show configured
+  const status = getAuthStatus();
+  assert.equal(status.isConfigured, true);
+  assert.equal(status.hint, 'سنة ٢٠٢٦');
+
+  // 4. Verification with correct password must succeed
+  const correctAttempt = verifyPassword('Admin@2026');
+  assert.equal(correctAttempt.success, true);
+
+  // 5. Verification with wrong password must fail
+  const wrongAttempt = verifyPassword('WrongPassword');
+  assert.equal(wrongAttempt.success, false);
+
+  // 6. Changing password with wrong current password must be rejected
+  const changeFailed = changePassword('WrongCurrent', 'NewSecret#99');
+  assert.equal(changeFailed.success, false);
+
+  // 7. Changing password with correct current password must succeed
+  const changeSuccess = changePassword('Admin@2026', 'NewSecret#99', 'تلميح جديد');
+  assert.equal(changeSuccess.success, true);
+
+  // 8. OLD password MUST NO LONGER WORK!
+  const oldPassAttempt = verifyPassword('Admin@2026');
+  assert.equal(oldPassAttempt.success, false, 'Old password must fail after password change');
+
+  // 9. NEW password MUST WORK!
+  const newPassAttempt = verifyPassword('NewSecret#99');
+  assert.equal(newPassAttempt.success, true, 'New password must succeed');
+
+  // 10. Random password must fail
+  const randomAttempt = verifyPassword('RandomAttempt');
+  assert.equal(randomAttempt.success, false);
+
+  // Cleanup
+  if (fs.existsSync(testDbFile)) {
+    try { fs.unlinkSync(testDbFile); } catch (e) {}
+  }
+});
+
+test('10. Dark Mode Configuration: Tailwind v4 custom-variant and HTML pre-load script', () => {
+  const cssFile = path.resolve(__dirname, '../src/index.css');
+  const cssContent = fs.readFileSync(cssFile, 'utf-8');
+  assert.ok(
+    cssContent.includes('@custom-variant dark (&:where(.dark, .dark *));'),
+    'src/index.css must define @custom-variant dark for class-based dark mode in Tailwind v4'
+  );
+
+  const htmlFile = path.resolve(__dirname, '../index.html');
+  const htmlContent = fs.readFileSync(htmlFile, 'utf-8');
+  assert.ok(
+    htmlContent.includes('raseedi_theme'),
+    'index.html must check raseedi_theme for zero-latency dark mode initialization'
+  );
 });
 
 console.log('All backend, financial domain, About page, and asset test suites defined.');
