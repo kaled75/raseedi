@@ -13,15 +13,21 @@ export function getDatabasePath(): string {
   try {
     if (process.versions && (process.versions as any).electron) {
       const electron = require('electron');
-      if (electron && electron.app && typeof electron.app.getPath === 'function') {
-        baseDir = electron.app.getPath('userData');
+      const app = electron.app || (electron.remote && electron.remote.app);
+      if (app && typeof app.getPath === 'function') {
+        baseDir = app.getPath('userData');
       }
     }
   } catch (e) {
     // Fallback if not inside running electron main yet
   }
 
-  if (!baseDir) {
+  // Windows permanent AppData fallback - ALWAYS permanent across restarts and portable runs
+  if (!baseDir && process.env.APPDATA) {
+    baseDir = path.join(process.env.APPDATA, 'رَصيدي - Raseedi');
+  } else if (!baseDir && process.env.USERPROFILE) {
+    baseDir = path.join(process.env.USERPROFILE, 'AppData', 'Roaming', 'رَصيدي - Raseedi');
+  } else if (!baseDir) {
     baseDir = path.resolve(process.cwd(), 'data');
   }
 
@@ -53,12 +59,22 @@ export function initDatabase(customPath?: string): Database.Database {
   // Optimize SQLite
   dbInstance.pragma('journal_mode = WAL');
   dbInstance.pragma('foreign_keys = ON');
-  dbInstance.pragma('synchronous = NORMAL');
+  dbInstance.pragma('synchronous = FULL');
 
   // Run migrations
   runMigrations(dbInstance);
 
   return dbInstance;
+}
+
+export function checkpointDatabase(): void {
+  if (dbInstance) {
+    try {
+      dbInstance.pragma('wal_checkpoint(PASSIVE)');
+    } catch (e) {
+      console.error('Error checkpointing database:', e);
+    }
+  }
 }
 
 export function getDatabase(): Database.Database {
@@ -71,6 +87,7 @@ export function getDatabase(): Database.Database {
 export function closeDatabase(): void {
   if (dbInstance) {
     try {
+      dbInstance.pragma('wal_checkpoint(TRUNCATE)');
       dbInstance.close();
     } catch (e) {
       console.error('Error closing database:', e);

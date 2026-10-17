@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { getDatabase } from '../db';
+import { getDatabase, checkpointDatabase } from '../db';
 import { AuditLog, LocalAuth } from '../db/types';
 
 const PBKDF2_ITERATIONS = 100000;
@@ -47,12 +47,6 @@ export function setupInitialPassword(password: string, hint?: string): { success
   }
 
   const db = getDatabase();
-  const existing = db.prepare('SELECT * FROM local_auth WHERE id = 1').get() as LocalAuth | undefined;
-
-  if (existing && existing.is_configured) {
-    return { success: false, message: 'تم إعداد كلمة المرور مسبقاً' };
-  }
-
   const salt = crypto.randomBytes(32).toString('hex');
   const passwordHash = hashPassword(password, salt);
   const now = new Date().toISOString();
@@ -66,9 +60,11 @@ export function setupInitialPassword(password: string, hint?: string): { success
       hint = excluded.hint,
       is_configured = 1,
       failed_attempts = 0,
+      locked_until = NULL,
       updated_at = excluded.updated_at
   `).run(passwordHash, salt, hint || null, now, now);
 
+  checkpointDatabase();
   logAudit('AUTH_SETUP', 'auth', '1', { hintSet: !!hint });
   return { success: true };
 }
@@ -160,6 +156,7 @@ export function changePassword(currentPass: string, newPass: string, hint?: stri
       updated_at = excluded.updated_at
   `).run(passwordHash, salt, hint || null, now, now);
 
+  checkpointDatabase();
   logAudit('AUTH_CHANGE_PASSWORD', 'auth', '1', { hintUpdated: !!hint });
   return { success: true };
 }

@@ -30,8 +30,13 @@ function createWindow() {
   // Remove default menu for SaaS desktop feel
   Menu.setApplicationMenu(null);
 
-  // Initialize SQLite database
-  initDatabase();
+  // Explicitly ensure permanent userData path for database
+  const userDataDir = path.join(app.getPath('appData'), 'رَصيدي - Raseedi');
+  if (!fs.existsSync(userDataDir)) {
+    fs.mkdirSync(userDataDir, { recursive: true });
+  }
+  const dbPath = path.join(userDataDir, 'raseedi.sqlite3');
+  initDatabase(dbPath);
 
   // Register IPC handlers
   registerIpcHandlers(mainWindow);
