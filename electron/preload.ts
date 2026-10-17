@@ -75,7 +75,8 @@ export const api = {
   minimize: () => ipcRenderer.invoke(IPC_CHANNELS.APP_MINIMIZE),
   maximize: () => ipcRenderer.invoke(IPC_CHANNELS.APP_MAXIMIZE),
   close: () => ipcRenderer.invoke(IPC_CHANNELS.APP_CLOSE),
-  getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_VERSION)
+  getVersion: () => ipcRenderer.invoke(IPC_CHANNELS.APP_GET_VERSION),
+  openExternal: (url: string) => ipcRenderer.invoke(IPC_CHANNELS.APP_OPEN_EXTERNAL, url)
 };
 
 contextBridge.exposeInMainWorld('api', api);

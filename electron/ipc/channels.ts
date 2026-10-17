@@ -65,5 +65,6 @@ export const IPC_CHANNELS = {
   APP_MINIMIZE: 'app:minimize',
   APP_MAXIMIZE: 'app:maximize',
   APP_CLOSE: 'app:close',
-  APP_GET_VERSION: 'app:get-version'
+  APP_GET_VERSION: 'app:get-version',
+  APP_OPEN_EXTERNAL: 'app:open-external'
 } as const;

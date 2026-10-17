@@ -1,17 +1,21 @@
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, shell } from 'electron';
 import path from 'path';
+import fs from 'fs';
 import { initDatabase, closeDatabase } from './db';
 import { registerIpcHandlers } from './ipc/handlers';
 
 let mainWindow: BrowserWindow | null = null;
 
 function createWindow() {
+  const iconPath = path.join(__dirname, '../build/icon.ico');
+
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
     minWidth: 1024,
     minHeight: 680,
     title: 'رَصيدي | Raseedi — Personal Debt Manager',
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
     backgroundColor: '#f8fafc',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -48,8 +52,18 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // Restrict navigation to external URLs
+  // Restrict navigation and open safe external URLs in system browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:' || parsed.protocol === 'mailto:') {
+        shell.openExternal(url);
+      }
+    } catch {
+      if (url.startsWith('mailto:')) {
+        shell.openExternal(url);
+      }
+    }
     return { action: 'deny' };
   });
 }

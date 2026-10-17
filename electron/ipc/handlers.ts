@@ -1,4 +1,4 @@
-import { ipcMain, dialog, BrowserWindow } from 'electron';
+import { ipcMain, dialog, BrowserWindow, shell } from 'electron';
 import path from 'path';
 import { IPC_CHANNELS } from './channels';
 import * as authService from '../services/authService';
@@ -288,4 +288,21 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   });
   ipcMain.handle(IPC_CHANNELS.APP_CLOSE, () => mainWindow.close());
   ipcMain.handle(IPC_CHANNELS.APP_GET_VERSION, () => '1.0.0');
+  ipcMain.handle(IPC_CHANNELS.APP_OPEN_EXTERNAL, async (_, url: string) => {
+    if (typeof url === 'string') {
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol === 'https:' || parsed.protocol === 'http:' || parsed.protocol === 'mailto:') {
+          await shell.openExternal(url);
+          return { success: true };
+        }
+      } catch {
+        if (url.startsWith('mailto:')) {
+          await shell.openExternal(url);
+          return { success: true };
+        }
+      }
+    }
+    return { success: false, error: 'Invalid URL protocol' };
+  });
 }

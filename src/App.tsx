@@ -232,7 +232,9 @@ export const App: React.FC = () => {
 
             {currentTab === 'settings' && <SettingsView />}
 
-            {currentTab === 'about' && <AboutView />}
+            {currentTab === 'about' && (
+              <AboutView onNavigateBack={() => setCurrentTab('dashboard')} />
+            )}
           </div>
         </main>
 

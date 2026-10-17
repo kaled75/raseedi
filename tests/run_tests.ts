@@ -158,4 +158,38 @@ test('6. Backup verification: SHA-256 calculation', () => {
   fs.unlinkSync(tempFile);
 });
 
-console.log('All backend and financial domain test suites defined.');
+test('7. About page validation: Designer details, email, and social links', () => {
+  const aboutFile = path.resolve(__dirname, '../src/views/AboutView.tsx');
+  assert.ok(fs.existsSync(aboutFile), 'AboutView.tsx must exist');
+  const content = fs.readFileSync(aboutFile, 'utf8');
+
+  assert.ok(content.includes('خالد الرماح ابورقيقة'), 'Designer name must match literally');
+  assert.ok(content.includes('kl2009k@gmail.com'), 'Designer email must match literally');
+  assert.ok(content.includes('mailto:kl2009k@gmail.com'), 'Email mailto link must be present');
+  assert.ok(content.includes('https://www.facebook.com/Khaled.Alrammah.AbuRaqiqa'), 'Facebook profile link must match literally');
+});
+
+test('8. Application Icon validation: Multi-size ICO and PNG', () => {
+  const icoFile = path.resolve(__dirname, '../build/icon.ico');
+  const pngFile = path.resolve(__dirname, '../build/icon.png');
+
+  assert.ok(fs.existsSync(icoFile), 'build/icon.ico must exist');
+  assert.ok(fs.existsSync(pngFile), 'build/icon.png must exist');
+
+  const icoBuf = fs.readFileSync(icoFile);
+  assert.ok(icoBuf.length > 1000, 'ICO file must be non-trivial size');
+  // Check ICO magic: 0x00, 0x00, 0x01, 0x00
+  assert.equal(icoBuf[0], 0x00);
+  assert.equal(icoBuf[1], 0x00);
+  assert.equal(icoBuf[2], 0x01);
+  assert.equal(icoBuf[3], 0x00);
+
+  const pngBuf = fs.readFileSync(pngFile);
+  // Check PNG magic: 0x89, 'P', 'N', 'G'
+  assert.equal(pngBuf[0], 0x89);
+  assert.equal(pngBuf[1], 0x50);
+  assert.equal(pngBuf[2], 0x4e);
+  assert.equal(pngBuf[3], 0x47);
+});
+
+console.log('All backend, financial domain, About page, and asset test suites defined.');

@@ -18,8 +18,14 @@
   "build": {
     "appId": "com.raseedi.debtmanager",
     "productName": "رَصيدي - Raseedi",
+    "npmRebuild": false,
+    "asar": true,
+    "asarUnpack": [
+      "**/node_modules/better-sqlite3/**"
+    ],
     "directories": {
-      "output": "release"
+      "output": "release",
+      "buildResources": "build"
     },
     "files": [
       "dist/**/*",
@@ -28,6 +34,7 @@
       "package.json"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",
@@ -48,7 +55,10 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "رَصيدي - Raseedi"
+      "shortcutName": "رَصيدي - Raseedi",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "uninstallDisplayName": "رَصيدي - Raseedi"
     }
   },
   "keywords": [
@@ -59,7 +69,7 @@
     "arabic-rtl",
     "raseedi"
   ],
-  "author": "Raseedi Team",
+  "author": "خالد الرماح ابورقيقة <kl2009k@gmail.com>",
   "license": "MIT",
   "dependencies": {
     "better-sqlite3": "^13.0.3",

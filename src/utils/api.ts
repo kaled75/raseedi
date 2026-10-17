@@ -895,5 +895,12 @@ export const api = {
   minimize: () => window.api?.minimize?.(),
   maximize: () => window.api?.maximize?.(),
   close: () => window.api?.close?.(),
-  getVersion: async () => window.api?.getVersion?.() || '1.0.0'
+  getVersion: async () => window.api?.getVersion?.() || '1.0.0',
+  openExternal: async (url: string) => {
+    if (window.api?.openExternal) {
+      return window.api.openExternal(url);
+    }
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return { success: true };
+  }
 };
